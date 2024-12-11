@@ -338,7 +338,6 @@ class BluetoothConnectionActivity : AppCompatActivity() {
      * @param device Dispositivo BLE ao qual se deseja conectar.
      */
     private fun connectToDevice(device: BluetoothDevice) {
-        // Verifica se a permissão necessária para conectar está concedida
         if (ActivityCompat.checkSelfPermission(
                 this,
                 Manifest.permission.BLUETOOTH_CONNECT
@@ -346,10 +345,8 @@ class BluetoothConnectionActivity : AppCompatActivity() {
         ) {
             return
         }
-
         // Inicia a conexão GATT com o dispositivo selecionado
         bluetoothGatt = device.connectGatt(this, false, object : BluetoothGattCallback() {
-
             /**
              * Callback chamado quando o estado da conexão com o dispositivo BLE muda.
              *
@@ -358,48 +355,62 @@ class BluetoothConnectionActivity : AppCompatActivity() {
              * @param newState Novo estado da conexão (ex.: conectado ou desconectado).
              */
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-                when (newState) {
-                    BluetoothProfile.STATE_CONNECTED -> {
-                        Log.d("BLE Connection", "Conectado ao dispositivo: ${device.address}")
-                        runOnUiThread {
-                            Toast.makeText(
-                                this@BluetoothConnectionActivity,
-                                "Conectado ao dispositivo ${device.name}",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                        // Descobrir serviços disponíveis no dispositivo conectado
-                        gatt.discoverServices()
+                if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    Log.d("BLE Connection", "Dispositivo desconectado.")
+                    BluetoothService.bluetoothGatt = null
+                    BluetoothService.writableCharacteristic = null
+                    if (ActivityCompat.checkSelfPermission(
+                            this@BluetoothConnectionActivity,
+                            Manifest.permission.BLUETOOTH_CONNECT
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        // TODO: Consider calling
+                        //    ActivityCompat#requestPermissions
+                        // here to request the missing permissions, and then overriding
+                        //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                        //                                          int[] grantResults)
+                        // to handle the case where the user grants the permission. See the documentation
+                        // for ActivityCompat#requestPermissions for more details.
+                        return
                     }
-                    BluetoothProfile.STATE_DISCONNECTED -> {
-                        Log.d("BLE Connection", "Dispositivo desconectado: ${device.address}")
-                        runOnUiThread {
-                            Toast.makeText(
-                                this@BluetoothConnectionActivity,
-                                "Desconectado do dispositivo ${device.name}",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                        bluetoothGatt = null
-                        if (ActivityCompat.checkSelfPermission(
-                                this@BluetoothConnectionActivity,
-                                Manifest.permission.BLUETOOTH_CONNECT
-                            ) != PackageManager.PERMISSION_GRANTED
-                        ) {
-                            // TODO: Consider calling
-                            //    ActivityCompat#requestPermissions
-                            // here to request the missing permissions, and then overriding
-                            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                            //                                          int[] grantResults)
-                            // to handle the case where the user grants the permission. See the documentation
-                            // for ActivityCompat#requestPermissions for more details.
-                            return
-                        }
-                        gatt.close() // Fecha a conexão GATT
+                    gatt.close()
+                }
+                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    Log.d("BLE Connection", "Conectado ao dispositivo: ${device.address}")
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@BluetoothConnectionActivity,
+                            "Conectado ao dispositivo ${device.name}",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
+                    if (ActivityCompat.checkSelfPermission(
+                            this@BluetoothConnectionActivity,
+                            Manifest.permission.BLUETOOTH_CONNECT
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        // TODO: Consider calling
+                        //    ActivityCompat#requestPermissions
+                        // here to request the missing permissions, and then overriding
+                        //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                        //                                          int[] grantResults)
+                        // to handle the case where the user grants the permission. See the documentation
+                        // for ActivityCompat#requestPermissions for more details.
+                        return
+                    }
+                    gatt.discoverServices()
+                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    Log.d("BLE Connection", "Desconectado do dispositivo: ${device.address}")
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@BluetoothConnectionActivity,
+                            "Desconectado do dispositivo ${device.name}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    bluetoothGatt = null
                 }
             }
-
             /**
              * Callback chamado quando os serviços BLE são descobertos no dispositivo.
              *
@@ -408,54 +419,46 @@ class BluetoothConnectionActivity : AppCompatActivity() {
              */
             override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
                 if (status == BluetoothGatt.GATT_SUCCESS) {
+                    val service = gatt.getService(SERVICE_UUID)
+                    BluetoothService.bluetoothGatt = gatt
+                    BluetoothService.writableCharacteristic =
+                        service?.getCharacteristic(CHARACTERISTIC_UUID_RX)
+                }
+                if (status == BluetoothGatt.GATT_SUCCESS) {
                     Log.d("BLE Services", "Serviços descobertos: ${gatt.services}")
                     val service = gatt.getService(SERVICE_UUID)
-
                     writableCharacteristic = service?.getCharacteristic(CHARACTERISTIC_UUID_RX)
                     val txCharacteristic = service?.getCharacteristic(CHARACTERISTIC_UUID_TX)
 
-                    // Configura notificações para a característica TX
+                    if (writableCharacteristic == null) {
+                        Log.e("BLE Characteristic", "Característica RX não encontrada.")
+                    }
+
                     if (txCharacteristic != null) {
                         if (ActivityCompat.checkSelfPermission(
                                 this@BluetoothConnectionActivity,
                                 Manifest.permission.BLUETOOTH_CONNECT
                             ) != PackageManager.PERMISSION_GRANTED
                         ) {
-                            // TODO: Consider calling
-                            //    ActivityCompat#requestPermissions
-                            // here to request the missing permissions, and then overriding
-                            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                            //                                          int[] grantResults)
-                            // to handle the case where the user grants the permission. See the documentation
-                            // for ActivityCompat#requestPermissions for more details.
                             return
                         }
+
+                        // Habilitar notificações na característica TX
                         gatt.setCharacteristicNotification(txCharacteristic, true)
                         val descriptor = txCharacteristic.getDescriptor(
                             UUID.fromString(CLIENT_CHARACTERISTIC_CONFIG)
                         )
                         descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                        if (ActivityCompat.checkSelfPermission(
-                                this@BluetoothConnectionActivity,
-                                Manifest.permission.BLUETOOTH_CONNECT
-                            ) != PackageManager.PERMISSION_GRANTED
-                        ) {
-                            // TODO: Consider calling
-                            //    ActivityCompat#requestPermissions
-                            // here to request the missing permissions, and then overriding
-                            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                            //                                          int[] grantResults)
-                            // to handle the case where the user grants the permission. See the documentation
-                            // for ActivityCompat#requestPermissions for more details.
-                            return
-                        }
                         gatt.writeDescriptor(descriptor)
-
                         runOnUiThread {
                             // Navega para o menu após a configuração bem-sucedida
                             navigateToMenu()
                         }
-                        Log.d("BLE Notification", "Notificações habilitadas para a característica TX")
+
+                        Log.d(
+                            "BLE Notification",
+                            "Notificações habilitadas para a característica TX"
+                        )
                     } else {
                         Log.e("BLE Characteristic", "Característica TX não encontrada.")
                     }
@@ -476,10 +479,11 @@ class BluetoothConnectionActivity : AppCompatActivity() {
                 characteristic: BluetoothGattCharacteristic
             ) {
                 if (characteristic.uuid == CHARACTERISTIC_UUID_TX) {
-                    val data = characteristic.value.decodeToString() // Decodifica os dados recebidos
+                    val data =
+                        characteristic.value.decodeToString() // Decodifica os dados recebidos
                     Log.d("BLE Notification", "Dados recebidos: $data")
 
-                    // Envia os dados recebidos como um broadcast para outras partes do aplicativo
+                    // Enviar os dados como um broadcast
                     val intent = Intent("com.example.app.BLE_DATA")
                     intent.putExtra("BLE_MESSAGE", data)
                     sendBroadcast(intent)
