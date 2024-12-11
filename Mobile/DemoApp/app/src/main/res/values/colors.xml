@@ -2,4 +2,16 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Azul para textos principais -->
+    <color name="blue">#5A67D8</color>
+
+    <!-- Roxo para o botão Switch -->
+    <color name="purple">#9F7AEA</color>
+
+    <!-- Cinza claro para o fundo do Switch -->
+    <color name="light_gray">#EDF2F7</color>
+
+    <!-- Cinza para o texto de instruções -->
+    <color name="gray">#A0AEC0</color>
 </resources>
