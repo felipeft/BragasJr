@@ -1,0 +1,9 @@
+[submodule "Firmware/FreeRTOS-Kernel"]
+	path = Firmware/FreeRTOS-Kernel
+	url = https://github.com/FreeRTOS/FreeRTOS-Kernel.git
+[submodule "Firmware/pico-sdk"]
+	path = Firmware/pico-sdk
+	url = https://github.com/raspberrypi/pico-sdk.git
+[submodule "Firmware/app"]
+	path = Firmware/app
+	url = https://github.com/jsadriann/gangorra.git
